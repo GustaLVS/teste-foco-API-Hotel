@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\ReservationXmlImporter;
 use App\Models\Hotel;
 use App\Models\Room;
 use Illuminate\Console\Command;
@@ -17,49 +18,79 @@ class ImportHotelXml extends Command
     protected $signature = 'hotel:import-xml
         {--path= : Caminho da pasta que contem os XMLs}';
 
-    protected $description = 'Importa hoteis e quartos dos arquivos XML';
+    protected $description = 'Importa hoteis, quartos e reservas dos arquivos XML';
 
-    public function handle(): int
-    {
-        $directory = $this->option('path') ?: storage_path('app/import');
-        $directory = rtrim($directory, '/\\');
+    public function handle(ReservationXmlImporter $importer): int
+{
+    $directory = $this->option('path') ?: storage_path('app/import');
+    $directory = rtrim($directory, '/\\');
 
-        try {
-            $hotelsXml = $this->readXml(
-                $directory . '/hotels.xml',
-                'Hotels'
+    try {
+        $hotelsXml = $this->readXml(
+            $directory . '/hotels.xml',
+            'Hotels'
+        );
+
+        $roomsXml = $this->readXml(
+            $directory . '/rooms.xml',
+            'Rooms'
+        );
+
+        $reservesXml = $this->readXml(
+            $directory . '/reserves.xml',
+            'Reserves'
+        );
+
+        $counts = DB::transaction(function () use (
+            $hotelsXml,
+            $roomsXml
+        ) {
+            return [
+                'hotels' => $this->importHotels($hotelsXml),
+                'rooms' => $this->importRooms($roomsXml),
+            ];
+        });
+
+        $reservations = $importer->import($reservesXml);
+
+        $this->info('Processamento dos XMLs finalizado.');
+
+        $this->line("Hoteis processados: {$counts['hotels']}");
+        $this->line("Quartos processados: {$counts['rooms']}");
+
+        $this->line(
+            "Reservas processadas: {$reservations['processed']}"
+        );
+
+        $this->line(
+            "Reservas rejeitadas: {$reservations['rejected']}"
+        );
+
+        foreach ($reservations['messages'] as $message) {
+            $this->warn($message);
+        }
+
+        if ($reservations['rejected'] > 0) {
+            $this->warn(
+                'Importacao parcial. Consulte o log para os detalhes.'
             );
-
-            $roomsXml = $this->readXml(
-                $directory . '/rooms.xml',
-                'Rooms'
-            );
-
-            $counts = DB::transaction(function () use (
-                $hotelsXml,
-                $roomsXml
-            ) {
-                return [
-                    'hotels' => $this->importHotels($hotelsXml),
-                    'rooms' => $this->importRooms($roomsXml),
-                ];
-            });
-
-            $this->info('Importacao de hoteis e quartos concluida.');
-            $this->line("Hoteis processados: {$counts['hotels']}");
-            $this->line("Quartos processados: {$counts['rooms']}");
-
-            return self::SUCCESS;
-        } catch (Throwable $exception) {
-            Log::error('Falha na importacao dos XMLs de hoteis e quartos.', [
-                'message' => $exception->getMessage(),
-            ]);
-
-            $this->error('Importacao interrompida: ' . $exception->getMessage());
 
             return self::FAILURE;
         }
+
+        return self::SUCCESS;
+    } catch (Throwable $exception) {
+        Log::error('Falha na importacao dos XMLs.', [
+            'message' => $exception->getMessage(),
+        ]);
+
+        $this->error(
+            'Importacao interrompida: ' . $exception->getMessage()
+        );
+
+        return self::FAILURE;
     }
+}
 
     private function readXml(string $path, string $root): SimpleXMLElement
     {
