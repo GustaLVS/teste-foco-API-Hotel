@@ -1,0 +1,1192 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "API de quartos e reservas",
+        "description": "CRUD de quartos e criação de reservas. Todos os IDs recebidos são internos ao banco. external_id é exclusivo da importação XML. Envie Accept: application/json e Content-Type: application/json nas requisições com corpo. Escolha IDs existentes e datas disponíveis nos exemplos.",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "/api",
+            "description": "API no mesmo servidor da documentação"
+        }
+    ],
+    "paths": {
+        "/reservations": {
+            "post": {
+                "tags": [
+                    "Reservas"
+                ],
+                "summary": "Cadastrar reserva",
+                "description": "Cria reserva, hóspedes, diárias e pagamentos na mesma transação. O checkout não conta como noite. Pagamentos são opcionais e podem ser parciais. Há conflito quando uma reserva do mesmo quarto começa antes da nova saída e termina depois da nova entrada. É permitido entrar no checkout anterior ou sair no checkin seguinte. Repetir o cadastro do mesmo período no mesmo quarto retorna 409.",
+                "operationId": "createReservation",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReservationWriteRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Reserva cadastrada com todos os relacionamentos.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReservationWriteResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Já existe reserva sobreposta no mesmo quarto.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "message": "O quarto ja possui uma reserva que se sobrepoe ao periodo informado."
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Dados inválidos, campos obrigatórios ausentes ou ID relacionado inexistente.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/rooms": {
+            "get": {
+                "tags": [
+                    "Quartos"
+                ],
+                "summary": "Listar quartos",
+                "description": "Lista quartos com seus hotéis, em ordem de ID e com paginação. hotel_id deve corresponder a um hotel existente.",
+                "operationId": "listRooms",
+                "parameters": [
+                    {
+                        "name": "hotel_id",
+                        "in": "query",
+                        "description": "Filtra pelo ID interno de um hotel existente.",
+                        "schema": {
+                            "type": "integer",
+                            "example": 2,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Quantidade de quartos por página.",
+                        "schema": {
+                            "type": "integer",
+                            "example": 15,
+                            "default": 15,
+                            "maximum": 100,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Página solicitada.",
+                        "schema": {
+                            "type": "integer",
+                            "example": 1,
+                            "default": 1,
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Lista paginada de quartos.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RoomPage"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Dados inválidos, campos obrigatórios ausentes ou ID relacionado inexistente.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Quartos"
+                ],
+                "summary": "Cadastrar quarto",
+                "description": "Cria um quarto com external_id nulo no banco. O campo external_id pode não aparecer na resposta imediata do cadastro.",
+                "operationId": "createRoom",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RoomWriteRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Quarto cadastrado.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RoomWriteResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Dados inválidos, campos obrigatórios ausentes ou ID relacionado inexistente.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/rooms/{id}": {
+            "get": {
+                "tags": [
+                    "Quartos"
+                ],
+                "summary": "Consultar quarto",
+                "description": "Retorna o quarto e seu hotel.",
+                "operationId": "showRoom",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID interno do quarto.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 2,
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Quarto encontrado.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RoomResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Quarto não encontrado.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "message": "Quarto não encontrado."
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "Quartos"
+                ],
+                "summary": "Atualizar nome e hotel",
+                "description": "Exige hotel_id e name. Um quarto com reservas pode ser renomeado, mas não transferido para outro hotel.",
+                "operationId": "replaceRoom",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID interno do quarto.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 2,
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RoomWriteRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Quarto atualizado.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RoomWriteResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Quarto não encontrado.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "message": "Quarto não encontrado."
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Quarto com reservas: exclusão ou transferência de hotel bloqueada.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "message": "Nao e permitido alterar o hotel de um quarto com reservas."
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Dados inválidos, campos obrigatórios ausentes ou ID relacionado inexistente.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Quartos"
+                ],
+                "summary": "Excluir quarto",
+                "description": "Exclui somente quartos sem reservas.",
+                "operationId": "deleteRoom",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID interno do quarto.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 2,
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Quarto excluído.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MessageResponse"
+                                },
+                                "example": {
+                                    "message": "Quarto excluido com sucesso."
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Quarto não encontrado.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "message": "Quarto não encontrado."
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Quarto com reservas não pode ser excluído.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "message": "Nao e permitido excluir um quarto com reservas."
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "tags": [
+                    "Quartos"
+                ],
+                "summary": "Atualizar parcialmente",
+                "description": "hotel_id e name são opcionais, mas não podem ser vazios quando enviados. Um quarto com reservas não pode ser transferido para outro hotel.",
+                "operationId": "patchRoom",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID interno do quarto.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 2,
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RoomPatchRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Quarto atualizado.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RoomWriteResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Quarto não encontrado.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "message": "Quarto não encontrado."
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Quarto com reservas: exclusão ou transferência de hotel bloqueada.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "message": "Nao e permitido alterar o hotel de um quarto com reservas."
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Dados inválidos, campos obrigatórios ausentes ou ID relacionado inexistente.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "Hotel": {
+                "required": [
+                    "id",
+                    "name"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "example": 2,
+                        "minimum": 1
+                    },
+                    "external_id": {
+                        "description": "Código de origem do XML; pode ser nulo.",
+                        "type": "integer",
+                        "readOnly": true,
+                        "example": 1,
+                        "nullable": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Hotel Foco Prime"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "example": "2026-10-05T13:00:00.000000Z"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "example": "2026-10-05T13:00:00.000000Z"
+                    }
+                },
+                "type": "object"
+            },
+            "Room": {
+                "required": [
+                    "id",
+                    "hotel_id",
+                    "name",
+                    "hotel"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "example": 2,
+                        "minimum": 1
+                    },
+                    "external_id": {
+                        "description": "Código do XML; nulo para quartos criados pela API. Pode não aparecer na resposta imediata do cadastro.",
+                        "type": "integer",
+                        "readOnly": true,
+                        "example": 1,
+                        "nullable": true
+                    },
+                    "hotel_id": {
+                        "type": "integer",
+                        "example": 2,
+                        "minimum": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Room 1 Hotel 1"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "example": "2026-10-05T13:00:00.000000Z"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "example": "2026-10-05T13:00:00.000000Z"
+                    },
+                    "hotel": {
+                        "$ref": "#/components/schemas/Hotel"
+                    }
+                },
+                "type": "object"
+            },
+            "RoomWriteRequest": {
+                "required": [
+                    "hotel_id",
+                    "name"
+                ],
+                "properties": {
+                    "hotel_id": {
+                        "description": "ID interno de um hotel existente.",
+                        "type": "integer",
+                        "example": 2,
+                        "minimum": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Quarto de teste do Swagger",
+                        "maxLength": 255,
+                        "minLength": 1
+                    }
+                },
+                "type": "object",
+                "example": {
+                    "hotel_id": 2,
+                    "name": "Quarto de teste do Swagger"
+                }
+            },
+            "RoomPatchRequest": {
+                "description": "Campos opcionais. Se enviados, devem respeitar as regras do cadastro. Um corpo vazio também é aceito.",
+                "properties": {
+                    "hotel_id": {
+                        "description": "ID interno de um hotel existente.",
+                        "type": "integer",
+                        "example": 2,
+                        "minimum": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Quarto de teste do Swagger",
+                        "maxLength": 255,
+                        "minLength": 1
+                    }
+                },
+                "type": "object",
+                "example": {
+                    "name": "Quarto atualizado"
+                }
+            },
+            "RoomResponse": {
+                "required": [
+                    "data"
+                ],
+                "properties": {
+                    "data": {
+                        "$ref": "#/components/schemas/Room"
+                    }
+                },
+                "type": "object"
+            },
+            "RoomWriteResponse": {
+                "required": [
+                    "message",
+                    "data"
+                ],
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "example": "Quarto cadastrado com sucesso."
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/Room"
+                    }
+                },
+                "type": "object"
+            },
+            "PaginationLink": {
+                "required": [
+                    "url",
+                    "label",
+                    "active"
+                ],
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "example": "http://127.0.0.1:8000/api/rooms?page=1",
+                        "nullable": true
+                    },
+                    "label": {
+                        "type": "string",
+                        "example": "1"
+                    },
+                    "page": {
+                        "type": "integer",
+                        "example": 1,
+                        "nullable": true
+                    },
+                    "active": {
+                        "type": "boolean",
+                        "example": true
+                    }
+                },
+                "type": "object"
+            },
+            "RoomPage": {
+                "required": [
+                    "current_page",
+                    "data",
+                    "per_page",
+                    "total"
+                ],
+                "properties": {
+                    "current_page": {
+                        "type": "integer",
+                        "example": 1,
+                        "minimum": 1
+                    },
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Room"
+                        }
+                    },
+                    "first_page_url": {
+                        "type": "string",
+                        "example": "http://127.0.0.1:8000/api/rooms?page=1"
+                    },
+                    "from": {
+                        "type": "integer",
+                        "example": 1,
+                        "nullable": true
+                    },
+                    "last_page": {
+                        "type": "integer",
+                        "example": 1,
+                        "minimum": 1
+                    },
+                    "last_page_url": {
+                        "type": "string",
+                        "example": "http://127.0.0.1:8000/api/rooms?page=1"
+                    },
+                    "links": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PaginationLink"
+                        }
+                    },
+                    "next_page_url": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "path": {
+                        "type": "string",
+                        "example": "http://127.0.0.1:8000/api/rooms"
+                    },
+                    "per_page": {
+                        "type": "integer",
+                        "example": 15,
+                        "maximum": 100,
+                        "minimum": 1
+                    },
+                    "prev_page_url": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "to": {
+                        "type": "integer",
+                        "example": 6,
+                        "nullable": true
+                    },
+                    "total": {
+                        "type": "integer",
+                        "example": 6,
+                        "minimum": 0
+                    }
+                },
+                "type": "object"
+            },
+            "GuestRequest": {
+                "required": [
+                    "name",
+                    "last_name",
+                    "phone"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "Hospede",
+                        "maxLength": 255,
+                        "minLength": 1
+                    },
+                    "last_name": {
+                        "type": "string",
+                        "example": "Teste Swagger",
+                        "maxLength": 255,
+                        "minLength": 1
+                    },
+                    "phone": {
+                        "type": "string",
+                        "example": "77999999999",
+                        "maxLength": 30,
+                        "minLength": 1
+                    }
+                },
+                "type": "object",
+                "additionalProperties": false
+            },
+            "DailyRequest": {
+                "required": [
+                    "date",
+                    "value"
+                ],
+                "properties": {
+                    "date": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-12-10"
+                    },
+                    "value": {
+                        "description": "Valor monetário não negativo como texto, com ponto e duas casas decimais.",
+                        "type": "string",
+                        "pattern": "^[0-9]{1,10}\\.[0-9]{2}$",
+                        "example": "150.00",
+                        "maxLength": 13,
+                        "minLength": 4
+                    }
+                },
+                "type": "object",
+                "additionalProperties": false
+            },
+            "PaymentRequest": {
+                "required": [
+                    "method",
+                    "value"
+                ],
+                "properties": {
+                    "method": {
+                        "description": "Código do método de pagamento.",
+                        "type": "integer",
+                        "example": 1,
+                        "maximum": 65535,
+                        "minimum": 0
+                    },
+                    "value": {
+                        "description": "Valor monetário não negativo como texto, com ponto e duas casas decimais.",
+                        "type": "string",
+                        "pattern": "^[0-9]{1,10}\\.[0-9]{2}$",
+                        "example": "100.00",
+                        "maxLength": 13,
+                        "minLength": 4
+                    }
+                },
+                "type": "object",
+                "additionalProperties": false
+            },
+            "ReservationGuest": {
+                "required": [
+                    "id",
+                    "reservation_id",
+                    "name",
+                    "last_name",
+                    "phone"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "example": 1,
+                        "minimum": 1
+                    },
+                    "reservation_id": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "example": 1,
+                        "minimum": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Hospede",
+                        "maxLength": 255,
+                        "minLength": 1
+                    },
+                    "last_name": {
+                        "type": "string",
+                        "example": "Teste Swagger",
+                        "maxLength": 255,
+                        "minLength": 1
+                    },
+                    "phone": {
+                        "type": "string",
+                        "example": "77999999999",
+                        "maxLength": 30,
+                        "minLength": 1
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "example": "2026-10-05T13:00:00.000000Z"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "example": "2026-10-05T13:00:00.000000Z"
+                    }
+                },
+                "type": "object"
+            },
+            "ReservationDaily": {
+                "required": [
+                    "id",
+                    "reservation_id",
+                    "date",
+                    "value"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "example": 1,
+                        "minimum": 1
+                    },
+                    "reservation_id": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "example": 1,
+                        "minimum": 1
+                    },
+                    "date": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-12-10"
+                    },
+                    "value": {
+                        "description": "Valor monetário não negativo como texto, com ponto e duas casas decimais.",
+                        "type": "string",
+                        "pattern": "^[0-9]{1,10}\\.[0-9]{2}$",
+                        "example": "150.00",
+                        "maxLength": 13,
+                        "minLength": 4
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "example": "2026-10-05T13:00:00.000000Z"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "example": "2026-10-05T13:00:00.000000Z"
+                    }
+                },
+                "type": "object"
+            },
+            "ReservationPayment": {
+                "required": [
+                    "id",
+                    "reservation_id",
+                    "method",
+                    "value"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "example": 1,
+                        "minimum": 1
+                    },
+                    "reservation_id": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "example": 1,
+                        "minimum": 1
+                    },
+                    "method": {
+                        "description": "Código do método de pagamento.",
+                        "type": "integer",
+                        "example": 1,
+                        "maximum": 65535,
+                        "minimum": 0
+                    },
+                    "value": {
+                        "description": "Valor monetário não negativo como texto, com ponto e duas casas decimais.",
+                        "type": "string",
+                        "pattern": "^[0-9]{1,10}\\.[0-9]{2}$",
+                        "example": "100.00",
+                        "maxLength": 13,
+                        "minLength": 4
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "example": "2026-10-05T13:00:00.000000Z"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "example": "2026-10-05T13:00:00.000000Z"
+                    }
+                },
+                "type": "object"
+            },
+            "ReservationWriteRequest": {
+                "description": "external_id é reservado ao XML e será rejeitado se enviado. O total deve ser igual à soma das diárias. Os nomes e telefones não podem conter apenas espaços. A disponibilidade é validada antes do cadastro.",
+                "required": [
+                    "room_id",
+                    "check_in",
+                    "check_out",
+                    "total",
+                    "guests",
+                    "dailies"
+                ],
+                "properties": {
+                    "room_id": {
+                        "description": "ID interno de um quarto existente, não o external_id.",
+                        "type": "integer",
+                        "example": 2,
+                        "minimum": 1
+                    },
+                    "check_in": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-12-10"
+                    },
+                    "check_out": {
+                        "description": "Deve ser posterior ao checkin; esse dia não recebe diária.",
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-12-12"
+                    },
+                    "total": {
+                        "description": "Valor monetário não negativo como texto, com ponto e duas casas decimais.",
+                        "type": "string",
+                        "pattern": "^[0-9]{1,10}\\.[0-9]{2}$",
+                        "example": "300.00",
+                        "maxLength": 13,
+                        "minLength": 4
+                    },
+                    "guests": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/GuestRequest"
+                        },
+                        "minItems": 1
+                    },
+                    "dailies": {
+                        "description": "Uma diária por noite; datas distintas, incluindo checkin e excluindo checkout. A soma dos valores deve ser igual ao total.",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DailyRequest"
+                        },
+                        "minItems": 1
+                    },
+                    "payments": {
+                        "description": "Opcional. Pode ser uma lista vazia. Pagamentos parciais são aceitos.",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PaymentRequest"
+                        }
+                    }
+                },
+                "type": "object",
+                "example": {
+                    "room_id": 2,
+                    "check_in": "2026-12-10",
+                    "check_out": "2026-12-12",
+                    "total": "300.00",
+                    "guests": [
+                        {
+                            "name": "Hospede",
+                            "last_name": "Teste Swagger",
+                            "phone": "77999999999"
+                        }
+                    ],
+                    "dailies": [
+                        {
+                            "date": "2026-12-10",
+                            "value": "150.00"
+                        },
+                        {
+                            "date": "2026-12-11",
+                            "value": "150.00"
+                        }
+                    ],
+                    "payments": [
+                        {
+                            "method": 1,
+                            "value": "100.00"
+                        }
+                    ]
+                }
+            },
+            "Reservation": {
+                "required": [
+                    "id",
+                    "room_id",
+                    "check_in",
+                    "check_out",
+                    "total",
+                    "room",
+                    "guests",
+                    "dailies",
+                    "payments"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "example": 1,
+                        "minimum": 1
+                    },
+                    "external_id": {
+                        "description": "Código do XML; nulo para reservas criadas pela API.",
+                        "type": "integer",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "room_id": {
+                        "type": "integer",
+                        "example": 2,
+                        "minimum": 1
+                    },
+                    "check_in": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-12-10"
+                    },
+                    "check_out": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-12-12"
+                    },
+                    "total": {
+                        "description": "Valor monetário não negativo como texto, com ponto e duas casas decimais.",
+                        "type": "string",
+                        "pattern": "^[0-9]{1,10}\\.[0-9]{2}$",
+                        "example": "300.00",
+                        "maxLength": 13,
+                        "minLength": 4
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "example": "2026-10-05T13:00:00.000000Z"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "example": "2026-10-05T13:00:00.000000Z"
+                    },
+                    "room": {
+                        "$ref": "#/components/schemas/Room"
+                    },
+                    "guests": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReservationGuest"
+                        }
+                    },
+                    "dailies": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReservationDaily"
+                        }
+                    },
+                    "payments": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReservationPayment"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "ReservationWriteResponse": {
+                "required": [
+                    "message",
+                    "data"
+                ],
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "example": "Reserva cadastrada com sucesso."
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/Reservation"
+                    }
+                },
+                "type": "object"
+            },
+            "MessageResponse": {
+                "required": [
+                    "message"
+                ],
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "example": "Operação concluída."
+                    }
+                },
+                "type": "object"
+            },
+            "ErrorResponse": {
+                "description": "Em ambiente de desenvolvimento, podem existir informações adicionais de depuração.",
+                "required": [
+                    "message"
+                ],
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "example": "Mensagem de erro."
+                    }
+                },
+                "type": "object"
+            },
+            "ValidationError": {
+                "required": [
+                    "message",
+                    "errors"
+                ],
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "example": "The name field is required."
+                    },
+                    "errors": {
+                        "type": "object",
+                        "example": {
+                            "name": [
+                                "The name field is required."
+                            ]
+                        },
+                        "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "type": "object"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Quartos",
+            "description": "Cadastro, consulta, atualização e exclusão de quartos."
+        },
+        {
+            "name": "Reservas",
+            "description": "Criação de reservas com hóspedes, diárias e pagamentos opcionais."
+        }
+    ]
+}

@@ -254,4 +254,55 @@ Foram testados manualmente:
 | Saída no checkin seguinte | 201 |
 | Mesmo período em outro quarto | 201 |
 
-Os testes automatizados serão adicionados na etapa 16.
+## Testes automatizados
+
+A suíte completa foi executada com 48 testes aprovados.
+
+Os testes específicos da aplicação estão distribuídos assim:
+
+| Arquivo | Testes |
+|---|---:|
+| RoomApiTest | 12 |
+| ReservationApiTest | 16 |
+| ReservationAvailabilityTest | 10 |
+| ImportHotelXmlTest | 8 |
+
+### Execução
+
+Na pasta do projeto:
+
+```bash
+php artisan test
+```
+
+Para executar um grupo específico:
+
+```bash
+php artisan test --filter=RoomApiTest
+php artisan test --filter=ReservationApiTest
+php artisan test --filter=ReservationAvailabilityTest
+php artisan test --filter=ImportHotelXmlTest
+```
+
+### Ambiente
+
+- Banco SQLite em memória, configurado no phpunit.xml.
+- Dados de teste isolados com RefreshDatabase.
+- Importação testada com cópias temporárias dos XMLs.
+- Verificação das respostas HTTP e dos registros no banco.
+- Verificação do rollback quando a gravação de um pagamento falha.
+- Verificação da repetição da importação sem duplicatas.
+- Verificação da preservação de uma reserva existente quando seu XML é rejeitado.
+
+
+## Documentação OpenAPI/Swagger
+
+Interface local: http://127.0.0.1:8000/api/documentation
+
+- [Configuração e geração do Swagger](swagger.md)
+- [Especificação OpenAPI em JSON](openapi.json)
+
+Verificações realizadas:
+- Interface Swagger carregada.
+- GET de quartos executado pela interface com HTTP 200.
+- Suíte completa executada após a instalação: 48 testes aprovados.
