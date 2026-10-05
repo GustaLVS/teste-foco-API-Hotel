@@ -1,0 +1,52 @@
+name: foco-hotel-api
+
+x-app-common: &app-common
+  image: foco-hotel-api:local
+  build:
+    context: .
+    dockerfile: Dockerfile
+  env_file:
+    - .env.docker
+  init: true
+  restart: unless-stopped
+  volumes:
+    - app-storage:/var/www/html/storage
+    - ./storage/app/import:/var/www/html/storage/app/import:ro
+  depends_on:
+    mysql:
+      condition: service_healthy
+
+services:
+  app:
+    <<: *app-common
+    ports:
+      - "127.0.0.1:8080:8000"
+
+  scheduler:
+    <<: *app-common
+    profiles:
+      - scheduler
+    command: ["php", "artisan", "schedule:work"]
+
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: foco_hotel_api
+      MYSQL_USER: foco
+      MYSQL_PASSWORD: foco_dev_password
+      MYSQL_ROOT_PASSWORD: root_dev_password
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'MYSQL_PWD="$${MYSQL_PASSWORD}" mysql -h 127.0.0.1 -u "$${MYSQL_USER}" "$${MYSQL_DATABASE}" -e "SELECT 1" --silent'
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+volumes:
+  mysql-data:
+  app-storage:
